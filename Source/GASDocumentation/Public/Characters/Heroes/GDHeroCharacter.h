@@ -1,4 +1,4 @@
-// Copyright 2019 Dan Kestranek.
+// Copyright 2020 Dan Kestranek.
 
 #pragma once
 
@@ -76,6 +76,8 @@ protected:
 
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+
+	virtual void PostInitializeComponents() override;
 
 	// Mouse
 	void LookUp(float Value);

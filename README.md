@@ -103,6 +103,7 @@ The best documentation will always be the plugin source code.
 > 1. [Debugging](#debugging)  
 >    6.1 [showdebug abilitysystem](#debugging-sd)  
 >    6.2 [Gameplay Debugger](#debugging-gd)  
+>    6.3 [GAS Logging](#debugging-log)  
 > 1. [Common GAS Acronymns](#acronyms)
 > 1. [Other Resources](#resources)
 > 1. [GAS Changelog](#changelog)  
@@ -332,7 +333,7 @@ Some `Attributes` are treated as placeholders for temporary values that are inte
 #### 3.3.4 Responding to Attribute Changes
 To listen for when an attribute changes to update the UI or other gameplay, use `UAbilitySystemComponent::GetGameplayAttributeValueChangeDelegate(FGameplayAttribute Attribute)`. This function returns a delegate that you can bind to that will be automatically called whenever an `Attribute` changes. The delegate provides a `FOnAttributeChangeData` parameter with the `NewValue`, `OldValue`, and `FGameplayEffectModCallbackData`. **Note:** The `FGameplayEffectModCallbackData` will only be set on the server.
 
-The Sample Project binds to the attribute value changed delegates on the `GDPlayerState` to update the HUD and to respond to player death when health reaches zero. A custom Blueprint node that wraps this into an `ASyncTask` is included in the Sample Project. It is used in the `UI_HUD` UMG Widget to update the health, mana, and stamina values. See `AsyncTaskAttributeChanged.h/cpp`.
+The Sample Project binds to the attribute value changed delegates on the `GDPlayerState` to update the HUD and to respond to player death when health reaches zero. A custom Blueprint node that wraps this into an `ASyncTask` is included in the Sample Project. It is used in the `UI_HUD` UMG Widget to update the health, mana, and stamina values. This `AsyncTask` will live forever until manually called `EndTask()`, which we do in the UMG Widget's `Destruct` event. See `AsyncTaskAttributeChanged.h/cpp`.
 
 ![Listen for Attribute Change BP Node](https://github.com/tranek/GASDocumentation/raw/master/Images/attributechange.png)
 
@@ -581,7 +582,7 @@ There are two types of stacking: Aggregate by Source and Aggregate by Target.
 
 Stacks also have policies for expiration, duration refresh, and period refresh. They have helpful hover tooltips in the `GameplayEffect` Blueprint.
 
-The Sample Project includes a custom Blueprint node that listens for `GameplayEffect` stack changes. The HUD uses it to update the amount of passive armor stacks that the player has. See `AsyncTaskEffectStackChanged.h/cpp`.
+The Sample Project includes a custom Blueprint node that listens for `GameplayEffect` stack changes. The HUD UMG Widget uses it to update the amount of passive armor stacks that the player has. This `AsyncTask` will live forever until manually called `EndTask()`, which we do in the UMG Widget's `Destruct` event. See `AsyncTaskEffectStackChanged.h/cpp`.
 
 ![Listen for GameplayEffect Stack Change BP Node](https://github.com/tranek/GASDocumentation/raw/master/Images/gestackchange.png)
 
@@ -876,6 +877,10 @@ void UPGGameplayAbility::ApplyCooldown(const FGameplayAbilitySpecHandle Handle, 
 }
 ```
 
+In this picture, the cooldown's duration `Modifier` is set to `SetByCaller` with a `Data Tag` of `Data.Cooldown`. `Data.Cooldown` would be `OurSetByCallerTag` in the code above.
+
+![Cooldown GE with SetByCaller](https://github.com/tranek/GASDocumentation/raw/master/Images/cooldownsbc.png)
+
 2. **Use an [`MMC`](#concepts-ge-mmc).** This has the same setup as above except for setting the `SetByCaller` as the duration on the `Cooldown GE` and in `ApplyCost`. Instead, set the duration to be a `Custom Calculation Class` and point to the new `MMC` that we will make.
 ```c++
 UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Cooldown")
@@ -978,7 +983,7 @@ To listen for when a cooldown ends, you can either respond to when the `Cooldown
 
 **Note:** Listening for a `GameplayEffect` to be added or removed on clients requires that they can receive replicated `GameplayEffects`. This will depend on their `ASC's` [replication mode](#concepts-asc-rm).
 
-The Sample Project includes a custom Blueprint node that listens for cooldowns begninning and ending. The HUD uses it to update the amount of time remaining on the Meteor's cooldown. See `AsyncTaskEffectCooldownChanged.h/cpp`.
+The Sample Project includes a custom Blueprint node that listens for cooldowns begninning and ending. The HUD UMG Widget uses it to update the amount of time remaining on the Meteor's cooldown. This `AsyncTask` will live forever until manually called `EndTask()`, which we do in the UMG Widget's `Destruct` event. See `AsyncTaskEffectCooldownChanged.h/cpp`.
 
 ![Listen for Cooldown Change BP Node](https://github.com/tranek/GASDocumentation/raw/master/Images/cooldownchange.png)
 
@@ -1462,6 +1467,10 @@ Often you will be creating your own custom `AbilityTasks` (in C++). The Sample P
 * Member variables and any internal helper functions
 
 **Note:** `AbilityTasks` can only declare one type of output delegate. All of your output delegates must be of this type, regardless if they use the parameters or not. Pass default values for unused delegate parameters.
+
+`AbilityTasks` only run on the Client or Server that is running the owning `GameplayAbility`; however, `AbilityTasks` can be set to run on simulated clients by setting `bSimulatedTask = true;` in the `AbilityTask` constructor, overriding `virtual void InitSimulatedTask(UGameplayTasksComponent& InGameplayTasksComponent);`, and setting any member variables to be replicated. This is only useful in rare situations like movement `AbilityTasks` where you don't want to replicate every movement change but instead simulate the entire movement `AbilityTask`. All of the `RootMotionSource` `AbilityTasks` do this. See `AbilityTask_MoveToLocation.h/.cpp` as an example.
+
+`AbilityTasks` can `Tick` if you set `bTickingTask = true;` in the `AbilityTask` constructor and override `virtual void TickTask(float DeltaTime);`. This is useful when you need to lerp values smoothly across frames. See `AbilityTask_MoveToLocation.h/.cpp` as an example.
 
 **[⬆ Back to Top](#table-of-contents)**
 
@@ -1948,6 +1957,49 @@ GAS adds functionality to the Gameplay Debugger. Access the Gameplay Debugger wi
 Use the Gameplay Debugger when you want to see the `GameplayTags`, `GameplayEffects`, and `GameplayAbilities` on **other** `Characters`. Unfortunately it does not show the `CurrentValue` of the target's `Attributes`. It will target whatever `Character` is in the center of your screen. Look at a different `Character` and press Apostrophe (') again to switch to inspecting its `ASC`. The currently inspected `Character` has the largest red circle above it.
 
 ![Gameplay Debugger](https://github.com/tranek/GASDocumentation/raw/master/Images/gameplaydebugger.png)
+
+**[⬆ Back to Top](#table-of-contents)**
+
+<a name="debugging-log"></a>
+### 6.3 GAS Logging
+The GAS source code contains a lot of logging statements produced at varying verbosity levels. You will most likely see these as `ABILITY_LOG()` statements. The default verbosity level is `Display`. Anything higher will not be displayed in the console by default.
+
+To change the verbosity level of a log category, type into your console:
+
+```
+log [category] [verbosity]
+```
+
+For example, to turn on `ABILITY_LOG()` statements, you would type into your console:
+```
+log LogAbilitySystem VeryVerbose
+```
+
+To reset it back to default, type:
+```
+log LogAbilitySystem Display
+```
+
+To display all log categories, type:
+```
+log list
+```
+
+Notable GAS related logging categories:
+
+| Logging Category          | Default Verbosity Level |
+| ------------------------- | ----------------------- |
+| LogAbilitySystem          | Display                 |
+| LogAbilitySystemComponent | Log                     |
+| LogGameplayCueDetails     | Log                     |
+| LogGameplayCueTranslator  | Display                 |
+| LogGameplayEffectDetails  | Log                     |
+| LogGameplayEffects        | Display                 |
+| LogGameplayTags           | Log                     |
+| LogGameplayTasks          | Log                     |
+| VLogAbilitySystem         | Display                 |
+
+See the [Wiki on Logging](https://wiki.unrealengine.com/Logs,_Printing_Messages_To_Yourself_During_Runtime) for more information.
 
 **[⬆ Back to Top](#table-of-contents)**
 

@@ -1,4 +1,4 @@
-// Copyright 2019 Dan Kestranek.
+// Copyright 2020 Dan Kestranek.
 
 
 #include "Characters/Heroes/GDHeroCharacter.h"
@@ -178,10 +178,18 @@ void AGDHeroCharacter::BeginPlay()
 	// When the player a client, the floating status bars are all set up in OnRep_PlayerState.
 	InitializeFloatingStatusBar();
 
-	GunComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, FName("GunSocket"));
-
 	StartingCameraBoomArmLength = CameraBoom->TargetArmLength;
 	StartingCameraBoomLocation = CameraBoom->GetRelativeLocation();
+}
+
+void AGDHeroCharacter::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+
+	if (GunComponent && GetMesh())
+	{
+		GunComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, FName("GunSocket"));
+	}
 }
 
 void AGDHeroCharacter::LookUp(float Value)
@@ -264,8 +272,8 @@ void AGDHeroCharacter::OnRep_PlayerState()
 		// Set the ASC for clients. Server does this in PossessedBy.
 		AbilitySystemComponent = Cast<UGDAbilitySystemComponent>(PS->GetAbilitySystemComponent());
 
-		// Refresh ASC Actor Info for clients. Server will be refreshed by its AI/PlayerController when it possesses a new Actor.
-		AbilitySystemComponent->RefreshAbilityActorInfo();
+		// Init ASC Actor Info for clients. Server will init its ASC when it possesses a new Actor.
+		AbilitySystemComponent->InitAbilityActorInfo(PS, this);
 
 		// Bind player input to the AbilitySystemComponent. Also called in SetupPlayerInputComponent because of a potential race condition.
 		BindASCInput();
