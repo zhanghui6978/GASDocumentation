@@ -309,6 +309,8 @@ virtual void StunTagChanged(const FGameplayTag CallbackTag, int32 NewCount);
 
 `Attributes` are defined by and live in an [`AttributeSet`](#concepts-as). The `AttributeSet` is reponsible for replicating `Attributes` that are marked for replication. See the section on [`AttributeSets`](#concepts-as) for how to define `Attributes`.
 
+**Tip:** If you don't want an `Attribute` to show up in the Editor's list of `Attributes`, you can use the `Meta = (HideInDetailsView)` `property specifier`.
+
 **[⬆ Back to Top](#table-of-contents)**
 
 <a name="concepts-a-value"></a>
@@ -838,27 +840,32 @@ When starting out, you will most likely have one unique `Cooldown GE` per `GA` t
 
 Two techniques for reusing the `Cooldown GE`:
 
-1. **Use a [`SetByCaller`](#concepts-ge-spec-setbycaller).** This is the easiest method. Set the duration of your shared `Cooldown GE` to `SetByCaller` with a `GameplayTag`. On your `GameplayAbility` subclass, define a float / `FScalableFloat` for the duration and a `FGameplayTagContainer` for the unique `Cooldown Tag`.
+1. **Use a [`SetByCaller`](#concepts-ge-spec-setbycaller).** This is the easiest method. Set the duration of your shared `Cooldown GE` to `SetByCaller` with a `GameplayTag`. On your `GameplayAbility` subclass, define a float / `FScalableFloat` for the duration, a `FGameplayTagContainer` for the unique `Cooldown Tag`, and a temporary `FGameplayTagContainer` that we will use as the return pointer of the union of our `Cooldown Tag` and the `Cooldown GE's` tags.
 ```c++
 UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Cooldown")
 FScalableFloat CooldownDuration;
 
 UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Cooldown")
 FGameplayTagContainer CooldownTags;
+
+// Temp container that we will return the pointer to in GetCooldownTags().
+// This will be a union of our CooldownTags and the Cooldown GE's cooldown tags.
+UPROPERTY()
+FGameplayTagContainer TempCooldownTags;
 ```
 
-Then override `UGameplayAbility::GetCooldownTags()` to inject our `Cooldown Tags` into the cooldown's `GameplayEffectSpec`.
+Then override `UGameplayAbility::GetCooldownTags()` to return the union of our `Cooldown Tags` and any existing `Cooldown GE's` tags.
 ```c++
 const FGameplayTagContainer * UPGGameplayAbility::GetCooldownTags() const
 {
-	FGameplayTagContainer* Tags = new FGameplayTagContainer();
+	FGameplayTagContainer* MutableTags = const_cast<FGameplayTagContainer*>(&TempCooldownTags);
 	const FGameplayTagContainer* ParentTags = Super::GetCooldownTags();
 	if (ParentTags)
 	{
-		Tags->AppendTags(*ParentTags);
+		MutableTags->AppendTags(*ParentTags);
 	}
-	Tags->AppendTags(CooldownTags);
-	return Tags;
+	MutableTags->AppendTags(CooldownTags);
+	return MutableTags;
 }
 ```
 
@@ -888,20 +895,25 @@ FScalableFloat CooldownDuration;
 
 UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Cooldown")
 FGameplayTagContainer CooldownTags;
+
+// Temp container that we will return the pointer to in GetCooldownTags().
+// This will be a union of our CooldownTags and the Cooldown GE's cooldown tags.
+UPROPERTY()
+FGameplayTagContainer TempCooldownTags;
 ```
 
-Override `UGameplayAbility::GetCooldownTags()` to inject our `Cooldown Tags` into the cooldown's `GameplayEffectSpec`.
+Then override `UGameplayAbility::GetCooldownTags()` to return the union of our `Cooldown Tags` and any existing `Cooldown GE's` tags.
 ```c++
 const FGameplayTagContainer * UPGGameplayAbility::GetCooldownTags() const
 {
-	FGameplayTagContainer* Tags = new FGameplayTagContainer();
+	FGameplayTagContainer* MutableTags = const_cast<FGameplayTagContainer*>(&TempCooldownTags);
 	const FGameplayTagContainer* ParentTags = Super::GetCooldownTags();
 	if (ParentTags)
 	{
-		Tags->AppendTags(*ParentTags);
+		MutableTags->AppendTags(*ParentTags);
 	}
-	Tags->AppendTags(CooldownTags);
-	return Tags;
+	MutableTags->AppendTags(CooldownTags);
+	return MutableTags;
 }
 ```
 
@@ -1929,7 +1941,18 @@ Often when debugging GAS related issues, you want to know things like:
 > * "What gameplay effects do I currently have?"
 > * "What abilities do I have granted, which ones are running, and which ones are blocked from activating?".
 
-GAS comes with two techniques for answering these questions at runtime.
+GAS comes with two techniques for answering these questions at runtime - [`showdebug abilitysystem`](#debugging-sd) and hooks in the [`GameplayDebugger`](#debugging-gd).
+
+**Tip:** UE4 likes to optimize C++ code which makes it hard to debug some functions. You will encounter this rarely when tracing deep into your code. If setting your Visual Studio solution configuration to `DebugGame Editor` still prevents tracing code or inspecting variables, you can disable all optimizations by wrapping the optimized function with the `PRAGMA_DISABLE_OPTIMIZATION_ACTUAL` and `PRAGMA_ENABLE_OPTIMIZATION_ACTUAL` macros. This cannot be used on the plugin code unless you rebuild the plugin from source. This may or may not work on inline functions depending on what they do and where they are. Be sure to remove the macros when you're done debugging!
+
+```c++
+PRAGMA_DISABLE_OPTIMIZATION_ACTUAL
+void MyClass::MyFunction(int32 MyIntParameter)
+{
+	// My code
+}
+PRAGMA_ENABLE_OPTIMIZATION_ACTUAL
+```
 
 **[⬆ Back to Top](#table-of-contents)**
 
