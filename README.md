@@ -1060,7 +1060,7 @@ Notable `GameplayEffectSpec` Contents:
 * The [`GameplayEffectContextHandle`](#concepts-ge-context) tells us who created this `GameplayEffectSpec`.
 * `Attributes` that were captured at the time of the `GameplayEffectSpec`'s creation due to snapshotting.
 * `DynamicGrantedTags` that the `GameplayEffectSpec` grants to the Target in addition to the `GameplayTags` that the `GameplayEffect` grants.
-* `DynamicAssetTags` that the `GameplayEffectSpect` has in addition to the `AssetTags` that the `GameplayEffect` has.
+* `DynamicAssetTags` that the `GameplayEffectSpec` has in addition to the `AssetTags` that the `GameplayEffect` has.
 * `SetByCaller` `TMaps`.
 
 **[⬆ Back to Top](#table-of-contents)**
@@ -1248,11 +1248,17 @@ ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().Damag
 
 <a name="concepts-ge-ec-senddata-backingdatatempvariable"></a>
 ###### 4.5.12.1.3 Backing Data Temporary Variable Calculation Modifier
-If you want to hardcode values to a `GameplayEffect`, you can pass them in using a `CalculationModifier` that uses a `Temporary Variable` or `Transient Aggregator` as its called in C++.
+If you want to hardcode values to a `GameplayEffect`, you can pass them in using a `CalculationModifier` that uses a `Temporary Variable` or `Transient Aggregator` as it's called in C++. The `Temporary Variable` is associated with a `GameplayTag`.
 
 In this screenshot example, we're adding 50 to a `Temporary Variable` using the `Data.Damage` `GameplayTag`.
 
 ![Backing Data Temporary Variable Calculation Modifier](https://github.com/tranek/GASDocumentation/raw/master/Images/calculationmodifierbackingdatatempvariable.png)
+
+Add backing `Temporary Variables` to your `ExecutionCalculation`'s constructor:
+
+```c++
+ValidTransientAggregatorIdentifiers.AddTag(FGameplayTag::RequestGameplayTag("Data.Damage"));
+```
 
 The `ExecutionCalculation` reads this value in using special capture functions similar to the `Attribute` capture functions.
 
@@ -2742,7 +2748,7 @@ While you can cycle between targets with `PageUp` and `PageDown`, the pages will
 ### 6.2 Gameplay Debugger
 GAS adds functionality to the Gameplay Debugger. Access the Gameplay Debugger with the Apostrophe (') key. Enable the Abilities category by pressing 3 on your numpad. The category may be different depending on what plugins you have. If your keyboard doesn't have a numpad like a laptop, then you can change the keybindings in the project settings.
 
-Use the Gameplay Debugger when you want to see the `GameplayTags`, `GameplayEffects`, and `GameplayAbilities` on **other** `Characters`. Unfortunately it does not show the `CurrentValue` of the target's `Attributes`. It will target whatever `Character` is in the center of your screen. Look at a different `Character` and press Apostrophe (') again to switch to inspecting its `ASC`. The currently inspected `Character` has the largest red circle above it.
+Use the Gameplay Debugger when you want to see the `GameplayTags`, `GameplayEffects`, and `GameplayAbilities` on **other** `Characters`. Unfortunately it does not show the `CurrentValue` of the target's `Attributes`. It will target whatever `Character` is in the center of your screen. You can change targets by selecting them in the World Outliner in the Editor or by looking at a different `Character` and press Apostrophe (') again. The currently inspected `Character` has the largest red circle above it.
 
 ![Gameplay Debugger](https://github.com/tranek/GASDocumentation/raw/master/Images/gameplaydebugger.png)
 
